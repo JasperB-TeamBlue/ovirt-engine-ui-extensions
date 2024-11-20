@@ -85,7 +85,7 @@ const StorageConnectionsTable = ({
     return row.cells.some(cell => cell.props.value !== cell.props.editableValue)
   }
 
-  const updateRows = (evt, type, isEditable, rowIndex, validationErrs) => {
+  const updateRows = (_evt, type, _isEditable, rowIndex, _validationErrs) => {
     const newRows = Array.from(rows)
     const connection = newRows[rowIndex].connection
 
@@ -160,7 +160,7 @@ const StorageConnectionsTable = ({
     row.cells[0].props.value = getIsAttachedIcon(connection)
   }
 
-  const handleTextInputChange = (newValue, evt, rowIndex, cellIndex) => {
+  const handleTextInputChange = (newValue, _evt, rowIndex, cellIndex) => {
     setRows((oldRows) => {
       const newRows = Array.from(oldRows)
       newRows[rowIndex].cells[cellIndex].props.editableValue = newValue
@@ -248,17 +248,17 @@ const StorageConnectionsTable = ({
     return [
       {
         title: msg.storageConnectionsAttachConnectionButton(),
-        onClick: (event, rowId, rowData, extra) => attachConnection(rowData.connection),
+        onClick: (_event, _rowId, rowData, _extra) => attachConnection(rowData.connection),
         isDisabled: rowData.connection && !canAttachConnection(rowData.connection, storageDomain),
       },
       {
         title: msg.storageConnectionsDetachConnectionButton(),
-        onClick: (event, rowId, rowData, extra) => detachConnection(rowData.connection),
+        onClick: (_event, _rowId, rowData, _extra) => detachConnection(rowData.connection),
         isDisabled: rowData.connection && !canDetachConnection(rowData.connection, storageDomain),
       },
       {
         title: msg.storageConnectionsRemoveConnectionButton(),
-        onClick: (event, rowId, rowData, extra) => deleteConnection(rowData.connection),
+        onClick: (_event, _rowId, rowData, _extra) => deleteConnection(rowData.connection),
         isDisabled: rowData.connection && !canRemoveConnection(rowData.connection),
       },
     ]
@@ -308,11 +308,11 @@ const canEditConnection = (connection, storageDomain) => {
 }
 
 const canAttachConnection = (connection, storageDomain) => {
-  return connection && (!connection.isAttachedToDomain && storageDomain.status === 'maintenance')
+  return connection && (!connection.isAttachedToDomain || storageDomain.status === 'maintenance' || storageDomain.status === "active")
 }
 
 const canDetachConnection = (connection, storageDomain) => {
-  return connection && (connection.isAttachedToDomain && storageDomain.status === 'maintenance')
+  return connection && (connection.isAttachedToDomain || storageDomain.status === "maintenance" || storageDomain.status === "active")
 }
 
 const canRemoveConnection = (connection) => {

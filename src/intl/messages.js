@@ -1310,6 +1310,18 @@ const messageDescriptors = {
     description: 'storage Domain is not in Maintenance mode Warning',
   },
 
+  storageConnectionsOnlyHasOneLeftWarning: {
+    id: 'storage.domains.connections.domain.singleconnection.warning',
+    defaultMessage: 'Only one connection attached to this storage domain remaining.',
+    description: 'storage domain connection is relying on single connection Warning'
+  },
+
+  storageConnectionsOnlyHasOneLeftWarningDetail: {
+    id: 'storage.domains.connections.domain.singleconnection.warning.detail',
+    defaultMessage: 'Deletion of last connection not permitted',
+    description: 'storage domain connection relying on single connection Warning detail'
+  },
+
   storageConnectionsDomainNotInMaintenanceWarningDetail: {
     id: 'storage.domains.connections.domain.maintenance.warning.detail',
     defaultMessage: 'Connections cannot be attached or detached, cannot edit attached connections',

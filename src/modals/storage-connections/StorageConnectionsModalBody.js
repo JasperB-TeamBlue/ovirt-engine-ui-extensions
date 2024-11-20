@@ -21,7 +21,6 @@ const StorageConnectionsModalBody = ({
   setShowAll,
   error,
   setError,
-  warning,
   onCreate,
   onEdit,
   onDelete,
@@ -38,6 +37,12 @@ const StorageConnectionsModalBody = ({
     setNewConnectionOpened(true)
   }
 
+  const checkStorageDomainIfOneConnectionRemaining = () => {
+    var attachedConnections = connections.filter(conn => conn.isAttachedToDomain)
+    var size = attachedConnections.length
+    return size == 1;
+  }
+
   return (
     <Stack hasGutter>
       {error && (
@@ -49,13 +54,6 @@ const StorageConnectionsModalBody = ({
             actionClose={<AlertActionCloseButton onClose={() => setError(null)} />}
           >
             {error}
-          </Alert>
-        </StackItem>
-      )}
-      {(storageDomain?.status !== 'maintenance') && (
-        <StackItem>
-          <Alert variant='warning' isInline title={msg.storageConnectionsDomainNotInMaintenanceWarning()}>
-            {msg.storageConnectionsDomainNotInMaintenanceWarningDetail()}
           </Alert>
         </StackItem>
       )}
