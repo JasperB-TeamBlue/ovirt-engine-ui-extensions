@@ -32,7 +32,6 @@ const StorageConnectionsModalBody = ({
   setShowAll,
   error,
   setError,
-  warning,
   onCreate,
   onEdit,
   onDelete,
@@ -97,13 +96,6 @@ const StorageConnectionsModalBody = ({
             actionClose={<AlertActionCloseButton onClose={() => setError(null)} />}
           >
             {error}
-          </Alert>
-        </StackItem>
-      )}
-      {(storageDomain?.status !== 'maintenance') && (
-        <StackItem>
-          <Alert variant='warning' isInline title={msg.storageConnectionsDomainNotInMaintenanceWarning()}>
-            {msg.storageConnectionsDomainNotInMaintenanceWarningDetail()}
           </Alert>
         </StackItem>
       )}
@@ -177,7 +169,8 @@ const StorageConnectionsModalBody = ({
             <Button
               isDisabled={ipSearchString === '' ||
                 host == null ||
-                storageDomain?.status !== 'maintenance'
+                (storageDomain?.status !== 'maintenance' &&
+                  storageDomain?.status !== 'active')
               }
               onClick={handleSearchForConnectionClick}
             >
