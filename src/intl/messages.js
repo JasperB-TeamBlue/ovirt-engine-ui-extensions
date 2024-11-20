@@ -1346,12 +1346,6 @@ const messageDescriptors = {
     description: 'storage Domain is not in Maintenance mode Warning',
   },
 
-  storageConnectionsDomainNotInMaintenanceWarningDetail: {
-    id: 'storage.domains.connections.domain.maintenance.warning.detail',
-    defaultMessage: 'Connections cannot be attached or detached, cannot edit attached connections',
-    description: 'storage Domain is not in Maintenance mode Warning Detail',
-  },
-
   storageConnectionsShowAllConnectionsSwitchOn: {
     id: 'storage.domains.connections.showAll.switch.on',
     defaultMessage: 'On',

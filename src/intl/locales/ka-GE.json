@@ -161,7 +161,6 @@
     "storage.domains.connections.connection.remove.button": "წაშლა",
     "storage.domains.connections.dataError": "საცავის კავშირების საჩვენებელი მონაცემების მოთხოვნის შეცდომა",
     "storage.domains.connections.domain.maintenance.warning": "საცავის დომენი რემონტის რეჟიმში არაა",
-    "storage.domains.connections.domain.maintenance.warning.detail": "კავშირების მიმაგრება და მოხსნა შეუძლებელია. მიმაგრებული კავშირების ჩასწორება შეუძლებელია.",
     "storage.domains.connections.field.port.error": "პორტის არასწორი მნიშვნელობა",
     "storage.domains.connections.field.required.error": "ეს ველი აუცილებელია",
     "storage.domains.connections.operation.failed.title": "ოპერაციის შეცდომა",
