@@ -44,12 +44,10 @@ sed \
   > "${spec_file}"
 
 # Make sure the rpmspec file is valid (specifically that the changelog dates won't kill the build)
-SPECLINT=$(rpmlint ${spec_file} 2>&1) || linterror=$?
-if [[ $linterror -ne 0 ]]; then
-    echo "Error or warning in '${spec_file}':"
-    echo "$SPECLINT"
+rpmbuild --nobuild --define="_topdir ${top_dir}" "${spec_file}" 2>&1 || {
+    echo "Error: Spec file validation failed for '${spec_file}'"
     exit 6
-fi
+}
 
 if [[ ${source_build:-0} -eq 1 ]] ; then
   # Build the source .rpm files:

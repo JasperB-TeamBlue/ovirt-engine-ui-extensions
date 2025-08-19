@@ -2,7 +2,7 @@
 
 # requirements for packaging/build.sh (see also ../packaging/spec.in)
 installdeps:
-	dnf -y install git jq rpmlint rpm-build
+	dnf -y install git jq rpm-build
 
 # explicity mark the copr generated git repo directory (which is done prior to the mock
 # call to the make_srpm and will be the current pwd) as safe for git commands

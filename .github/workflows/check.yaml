@@ -16,6 +16,8 @@ jobs:
         include:
           - name: EL9
             container-image: quay.io/ovirt/buildcontainer:el9stream
+          - name: EL10
+            container-image: quay.io/ovirt/buildcontainer:el10stream
 
     name: ${{ matrix.name }} - test, build and publish rpm repo for the PR (ovirt-engine-nodejs-modules build)
     container:
@@ -54,6 +56,8 @@ jobs:
         include:
           - name: EL9
             container-image: quay.io/ovirt/buildcontainer:el9stream
+          - name: EL10
+            container-image: quay.io/ovirt/buildcontainer:el10stream
 
     name: ${{ matrix.name }} - build the project the PR, but skip the rpm builds (online build)
     container:
