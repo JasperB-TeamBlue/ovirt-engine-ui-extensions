@@ -1387,6 +1387,42 @@ const messageDescriptors = {
     defaultMessage: 'Invalid port value',
     description: 'invalid port field value error',
   },
+
+  migrateVmVmsFetchError: {
+    id: 'migrate.vm.vmsFetchError',
+    defaultMessage: 'Could not fetch the selected virtual machines. Please try again.',
+    description: 'notification shown when fetching the VMs for the migrate dialog failed',
+  },
+
+  migrateVmHostsFetchError: {
+    id: 'migrate.vm.hostsFetchError',
+    defaultMessage: 'Could not fetch the available migration target hosts. Please try again.',
+    description: 'notification shown when fetching the migration target hosts for the migrate dialog failed',
+  },
+
+  migrateVmRetryButton: {
+    id: 'migrate.vm.retryButton',
+    defaultMessage: 'Retry',
+    description: 'label of the Retry button in the VM migrate dialog error state',
+  },
+
+  migrateVmHostNoLongerAvailable: {
+    id: 'migrate.vm.hostNoLongerAvailable',
+    defaultMessage: 'Selected host is no longer available as a migration target. Please select a different host.',
+    description: 'notification shown when the selected target host is no longer a valid migration target',
+  },
+
+  migrateVmValidationError: {
+    id: 'migrate.vm.validationError',
+    defaultMessage: 'Could not verify migration target. Please try again.',
+    description: 'notification shown when validating the selected target host failed before migrating',
+  },
+
+  migrateVmPartialFailure: {
+    id: 'migrate.vm.partialFailure',
+    defaultMessage: 'Migration failed for {value, number} of {total, number} virtual machine(s): {vmList}.',
+    description: 'notification shown when the engine rejected the migrate request for one or more VMs; {vmList} is a comma-separated list of the failed VM names',
+  },
 }
 
 module.exports = exports = messageDescriptors

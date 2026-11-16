@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useCallback, useEffect, useState, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import config from '_/plugin-config'
 import getPluginApi from '_/plugin-api'
@@ -96,12 +96,38 @@ async function fetchTargetHosts (vms, checkVmAffinity) {
 }
 
 /**
+ * Verify the selected target host is still a valid migration target for the
+ * given VMs by re-fetching the eligible hosts from the engine. Returns the
+ * fresh list of target hosts.
+ */
+async function verifyTargetHost (targetHostId, vms, checkVmAffinity) {
+  return await fetchTargetHosts(vms, checkVmAffinity)
+    .then(targetHosts =>
+      // "Automatically Choose Host" is always valid, otherwise the target
+      // must be in the fresh list of eligible hosts
+      !targetHostId || targetHosts.some(host => host.id === targetHostId)
+    )
+}
+
+/**
+ * Post the migrate request for a single VM and wait for the engine's response.
+ * Rejections carry the engine's `EngineError` (or network error) to the caller.
+ */
+function migrateSingleVm (vmId, requestBody) {
+  return enginePost(`api/vms/${vmId}/migrate`, JSON.stringify(requestBody))
+}
+
+/**
  * Migrate VMs to the target host.
  *
- * This function doesn't need to be async, since `VmMigrateModal` is closed
- * (no further interaction available) once the "Migrate" button is clicked.
+ * Verifies the target host is still valid before posting the migration, so
+ * a stale host list can't silently skip or fail VMs. Waits for every migrate
+ * POST to settle: resolves only when all VMs were accepted by the engine,
+ * rejects otherwise with the per-VM failures attached (`error.failures`,
+ * array of `{ vmId, error }`). The caller should keep the modal open and
+ * show a toast on rejection.
  */
-function migrateToHost (targetHostId, migrateVmsInAffinity, vms) {
+async function migrateToHost (targetHostId, migrateVmsInAffinity, checkVmAffinity, vms) {
   const requestBody = { force: true }
 
   if (targetHostId) {
@@ -117,20 +143,48 @@ function migrateToHost (targetHostId, migrateVmsInAffinity, vms) {
     return
   }
 
-  vms.forEach(vm => {
-    if (!vm.host || vm.host.id !== targetHostId) {
-      // request VM migration but don't wait for response
-      enginePost(`api/vms/${vm.id}/migrate`, JSON.stringify(requestBody))
-    }
-  })
+  // re-check that the picked host is still an eligible migration target
+  // (the host list may be stale, e.g. host went down while the dialog was open)
+  const isTargetStillValid = await verifyTargetHost(targetHostId, vms, checkVmAffinity)
+  if (!isTargetStillValid) {
+    const error = new Error('VmMigrateDataProvider: target host is no longer a valid migration target')
+    error.isStaleTarget = true
+    throw error
+  }
+
+  // fire all migrate requests concurrently and wait for each to settle, so
+  // HTTP errors (e.g. 409 cannot migrate, 401 expired session) are surfaced
+  // instead of silently dropped
+  const targets = vms.filter(vm => !vm.host || vm.host.id !== targetHostId)
+  const settled = await Promise.allSettled(
+    targets.map(vm => migrateSingleVm(vm.id, requestBody))
+  )
+
+  const failures = settled
+    .map((result, index) =>
+      result.status === 'rejected'
+        ? { vmId: targets[index].id, error: result.reason }
+        : null
+    )
+    .filter(Boolean)
+
+  if (failures.length > 0) {
+    const error = new Error(
+      `VmMigrateDataProvider: ${failures.length} of ${targets.length} migrate request(s) failed`
+    )
+    error.failures = failures
+    throw error
+  }
 }
 
 export function useVmMigrateDataProvider (checkVmAffinity, vmIds) {
   const memoIds = useMemo(() => ([vmIds]), [vmIds])
+  const [retryCount, setRetryCount] = useState(0)
+  const retry = useCallback(() => setRetryCount(count => count + 1), [])
 
-  const vms = useDataProvider({ fetchData: fetchVms, parameters: memoIds })
-  const hosts = useDataProvider({ fetchData: fetchTargetHosts, parameters: [vms.data, false], trigger: checkVmAffinity })
-  const hostsWithAffinity = useDataProvider({ fetchData: fetchTargetHosts, parameters: [vms.data, true], trigger: checkVmAffinity })
+  const vms = useDataProvider({ fetchData: fetchVms, parameters: memoIds, trigger: retryCount })
+  const hosts = useDataProvider({ fetchData: fetchTargetHosts, parameters: [vms.data, false], trigger: `${checkVmAffinity}-${retryCount}` })
+  const hostsWithAffinity = useDataProvider({ fetchData: fetchTargetHosts, parameters: [vms.data, true], trigger: `${checkVmAffinity}-${retryCount}` })
 
   const fetchError =
     vms.fetchError || (checkVmAffinity ? hostsWithAffinity.fetchError : hosts.fetchError)
@@ -146,18 +200,22 @@ export function useVmMigrateDataProvider (checkVmAffinity, vmIds) {
 
   return useMemo(() => ({
     vms: vms.data,
+    vmsFetchError: vms.fetchError,
     vmNames: !vms.data ? [] : vms.data.map(vm => vm.name),
     targetHostItems: !targetHosts ? [] : targetHosts.map(host => ({ value: host.id, text: host.name })),
     suggestAffinity,
     dataLoaded,
     fetchError,
     fetchInProgress,
+    retry,
   }), [
     vms.data,
+    vms.fetchError,
     suggestAffinity,
     dataLoaded,
     fetchError,
     fetchInProgress,
+    retry,
     targetHosts,
   ])
 }
@@ -168,21 +226,80 @@ const withTargetHosts = (WrappedComponent) => {
 
     const {
       vms,
+      vmsFetchError,
       vmNames,
       targetHostItems,
       suggestAffinity,
       dataLoaded,
       fetchError,
+      fetchInProgress,
+      retry,
     } = useVmMigrateDataProvider(checkVmAffinity, vmIds)
 
     useEffect(() => {
-      if (fetchError) {
-        getPluginApi().showToast(webadminToastTypes.danger, msg.migrateVmDataError())
+      if (!fetchError) {
+        return
       }
-    }, [fetchError])
+      // distinguish which fetch failed so the user gets an actionable message
+      const toastMessage =
+        vmsFetchError
+          ? msg.migrateVmVmsFetchError()
+          : msg.migrateVmHostsFetchError()
+      getPluginApi().showToast(webadminToastTypes.danger, toastMessage)
+    }, [fetchError, vmsFetchError])
 
     if (fetchError) {
-      return null
+      return (
+        <WrappedComponent
+          {...otherProps}
+          isLoading={fetchInProgress}
+          fetchErrorMessage={vmsFetchError
+            ? msg.migrateVmVmsFetchError()
+            : msg.migrateVmHostsFetchError()}
+          onRetry={retry}
+          vmNames={[]}
+          targetHostItems={[]}
+          suggestAffinity={false}
+          checkVmAffinity={checkVmAffinity}
+          onRefreshHosts={(checkVmAffinity) => setCheckVmAffinity(checkVmAffinity)}
+          onMigrateToHost={() => Promise.resolve(false)}
+        />
+      )
+    }
+
+    const handleMigrateToHost = async (hostId, migrateVmsInAffinity) => {
+      try {
+        await migrateToHost(hostId, migrateVmsInAffinity, checkVmAffinity, vms)
+      } catch (error) {
+        console.error('Failed to migrate VMs:', error)
+        let toastMessage
+        if (error.isStaleTarget) {
+          toastMessage = msg.migrateVmHostNoLongerAvailable()
+        } else if (error.failures) {
+          // engine rejected one or more migrate POSTs; show a single toast
+          // with the count and names of the VMs that failed, then rethrow
+          // so the shared toast below is skipped
+          const failedVmNames = error.failures
+            .map(({ vmId }) => {
+              const vm = vms.find(candidate => candidate.id === vmId)
+              return vm ? vm.name : vmId
+            })
+          getPluginApi().showToast(webadminToastTypes.danger, msg.migrateVmPartialFailure({
+            value: error.failures.length,
+            total: vms.length,
+            vmList: failedVmNames.join(', '),
+          }))
+          error.failures.forEach(({ vmId, error: failure }) => {
+            console.error(`Migrate request for VM ${vmId} failed:`, failure)
+          })
+          throw error
+        } else {
+          toastMessage = msg.migrateVmValidationError()
+        }
+        getPluginApi().showToast(webadminToastTypes.danger, toastMessage)
+        // rethrow so the modal stays open
+        throw error
+      }
     }
 
     return (
@@ -194,7 +311,13 @@ const withTargetHosts = (WrappedComponent) => {
         vmNames={vmNames}
         checkVmAffinity={checkVmAffinity}
         onRefreshHosts={(checkVmAffinity) => setCheckVmAffinity(checkVmAffinity)}
-        onMigrateToHost={(hostId, migrateVmsInAffinity) => migrateToHost(hostId, migrateVmsInAffinity, vms)}
+        onMigrateToHost={(hostId, migrateVmsInAffinity) =>
+          // the modal always closes once "Migrate" is clicked; any failure is
+          // reported to the user via a toast above
+          handleMigrateToHost(hostId, migrateVmsInAffinity).catch(error => {
+            console.error('Failed to migrate VMs:', error)
+            return true
+          })}
       />
     )
   }
